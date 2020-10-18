@@ -17,7 +17,7 @@ include_directories(
 )
 
 file(GLOB_RECURSE INCLUDES "lv_drivers/*.h" "lvgl/*.h"  "./*.h" )
-file(GLOB_RECURSE SOURCES  "lv_drivers/*.c" "sdl2w/*.c" "lvgl/*.c" )
+file(GLOB_RECURSE SOURCES  "lv_drivers/*.c" "gui/*.c" "lvgl/*.c" )
 
 file(GLOB WEBSOCKET_CLIENT_SOURCES "sdl_message_handler/*.cc" )
 add_library("websocket_client" ${WEBSOCKET_CLIENT_SOURCES})
@@ -28,7 +28,8 @@ SET(LIBRARIES
     utils
 )
 target_link_libraries(websocket_client ${LIBRARIES})
-SET(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
+#SET(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
+SET(EXECUTABLE_OUTPUT_PATH ${CMAKE_CURRENT_BINARY_DIR})
 
 find_package(SDL2 REQUIRED SDL2)
 include_directories(${SDL2_INCLUDE_DIRS})

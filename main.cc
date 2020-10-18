@@ -18,7 +18,7 @@
 #include "lv_drivers/indev/mouse.h"
 // #include "lv_examples/lv_examples.h"
 
-#include "sdl2w/sdl2w.h"
+#include "gui/sdl2w.h"
 #include "sdl_message_handler/WebsocketSession.h"
 #include "sdl_message_handler/BasicCommunication.h"
 // #include "sdl_message_handler/UI.h"
