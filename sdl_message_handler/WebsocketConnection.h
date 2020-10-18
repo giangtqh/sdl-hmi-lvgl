@@ -15,19 +15,17 @@ class WebsocketConnection {
  public:
     WebsocketConnection();
     virtual ~WebsocketConnection();
-
-    virtual void registerComponent(void) = 0;
-    virtual void unregisterComponent(void) = 0;
-    virtual void subscribeTo(std::string property) = 0;
-    virtual void unsubscribeFrom(std::string property) = 0;
-
-    virtual void onReady(void) = 0;
-
     virtual void sendJsonMessage(Json::Value& msg) = 0;
 
     virtual void shutdown(void) = 0;
 
  protected:
+    virtual void registerComponent(void) {};
+    virtual void unregisterComponent(void) {};
+    virtual void subscribeTo(std::string property) {};
+    virtual void unsubscribeFrom(std::string property) {};
+    virtual void onReady(void) {};
+
     bool checkMessage(Json::Value& root, Json::Value& error);
     bool isNotification(Json::Value& root);
     bool isResponse(Json::Value& root);
