@@ -29,6 +29,7 @@ void SDLMessageController::shutdown(void) {
 
 void SDLMessageController::startSession(void) {
     auto bs = std::make_shared<BasicCommunication>(mGuiController);
+    bs->registerComponent();
     // TODO: define const variable for "BasicCommunication"
     mConnectionList.insert(std::pair<std::string, std::shared_ptr<WebsocketConnection>>("BasicCommunication", bs));
     // TODO: create and insert other components into list

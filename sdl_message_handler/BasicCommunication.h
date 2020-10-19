@@ -70,6 +70,9 @@ class BasicCommunication : public WebsocketConnection {
 
     std::string findMethodById(std::string id);
 
+    int generateId(void);
+    void subscribeNotifications(void);
+
     std::atomic_bool mShutdown;
     std::string mId;
     std::string mName;
@@ -77,6 +80,12 @@ class BasicCommunication : public WebsocketConnection {
     std::mutex                         mWaitResponseQueueMutex;
     std::map<std::string, std::string> mWaitResponseQueue;
     std::shared_ptr<GuiController>     mGuiController;
+    // unique request ids for different components in RPC
+    int mRequestId;
+    // mStartId is received as a response for registerRPCComponent messages
+    int mStartId;
+
+    // TODO: add queue for incomming message
 };
 
 }

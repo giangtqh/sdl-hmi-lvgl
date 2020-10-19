@@ -35,7 +35,6 @@
 
 namespace sdlcore_message_handler {
 
-typedef std::queue<std::shared_ptr<std::string> > AsyncQueue;
 typedef std::shared_ptr<std::string> MessagePtr;
 using DataReceiveCallback = std::function<void(MessagePtr)>;
 // TODO: error callback with code
@@ -48,7 +47,7 @@ class WebsocketSession: public std::enable_shared_from_this<WebsocketSession> {
     boost::beast::multi_buffer buffer_;
     boost::asio::thread_pool io_pool_;
 
-  public:
+ public:
     enum Error {
         UNKNOWN = -1,
         OK,
@@ -58,8 +57,8 @@ class WebsocketSession: public std::enable_shared_from_this<WebsocketSession> {
         BAD_STATE,
         BAD_PARAM
     };
-    WebsocketSession(DataReceiveCallback data_receive,
-                    OnErrorCallback on_error);
+    WebsocketSession(std::string id, std::string name,
+                     DataReceiveCallback data_receive, OnErrorCallback on_error);
     ~WebsocketSession();
     WebsocketSession::Error open(void);
     void sendJsonMessage(Json::Value& message);
@@ -77,15 +76,9 @@ class WebsocketSession: public std::enable_shared_from_this<WebsocketSession> {
     bool isResponse(Json::Value& root);
     std::string GetComponentName(std::string& method);
 
- protected:
-    DataReceiveCallback data_receive_cb_;
-    OnErrorCallback error_cb_;
-
  private:
-    std::atomic_bool shutdown_;
-
     class LoopThreadDelegate : public utils::Thread {
-    public:
+     public:
         LoopThreadDelegate(utils::MessageQueue<MessagePtr>* message_queue,
                           WebsocketSession* handler);
         virtual void run();
@@ -94,7 +87,7 @@ class WebsocketSession: public std::enable_shared_from_this<WebsocketSession> {
         int startThread(void);
         int stopThread(void);
         void notify(void) {}
-    private:
+     private:
         void DrainQueue();
         utils::MessageQueue<MessagePtr>& message_queue_;
         WebsocketSession& handler_;
@@ -104,8 +97,13 @@ class WebsocketSession: public std::enable_shared_from_this<WebsocketSession> {
         std::atomic_bool shutdown_;
     };
 
-    utils::MessageQueue<MessagePtr> message_queue_;
-    LoopThreadDelegate* thread_delegate_;
+    std::string mComponentId;
+    std::string mComponentName;
+    std::atomic_bool mShutdown;
+    DataReceiveCallback mDataReceiveCb;
+    OnErrorCallback mErrorCb;
+    utils::MessageQueue<MessagePtr> mMessageToSDLQueue;
+    LoopThreadDelegate* mSendMsgToSDLThread;
 };
 
 }  // namespace sdlcore_message_handler

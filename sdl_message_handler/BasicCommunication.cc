@@ -14,8 +14,11 @@ BasicCommunication::BasicCommunication(std::shared_ptr<GuiController> gui)
     , mShutdown(false)
     , mId("600")
     , mName("BasicCommunication")
-    , mGuiController(gui) {
-    mWs = std::make_shared<WebsocketSession>(std::bind(&BasicCommunication::onMessageReceived, this, std::placeholders::_1),
+    , mGuiController(gui)
+    , mRequestId(-1)
+    , mStartId(-1) {
+    mWs = std::make_shared<WebsocketSession>(mId, mName,
+                                             std::bind(&BasicCommunication::onMessageReceived, this, std::placeholders::_1),
                                              std::bind(&BasicCommunication::onError, this));
     WebsocketSession::Error ret = mWs->open();
     if (WebsocketSession::OK != ret) {
@@ -45,8 +48,6 @@ void BasicCommunication::onReady(void) {
 }
 
 void BasicCommunication::onMessageReceived(MessagePtr msg) {
-  // Determine message type and process...
-
     utils::JsonReader reader;
     Json::Value root;
     if (!reader.parse(*msg, &root)) {
@@ -86,7 +87,7 @@ void BasicCommunication::onMessageReceived(MessagePtr msg) {
     }
 }
 
-// TODO: handle SDL response for respective HMI request, but how to handle when no response 
+// TODO: handle SDL response for respective HMI request, but how to handle when no response
 std::string BasicCommunication::findMethodById(std::string id) {
   std::lock_guard<std::mutex> guard(mWaitResponseQueueMutex);
   std::string res = "";
@@ -99,6 +100,7 @@ std::string BasicCommunication::findMethodById(std::string id) {
   return res;
 }
 
+// TODO: race condition between send and recv message on mWaitResponseQueue, check with add queue for incomming message
 void BasicCommunication::sendJsonMessage(Json::Value& message) {
     std::lock_guard<std::mutex> guard(mWaitResponseQueueMutex);
     if (!isNotification(message) && !isResponse(message)) {
@@ -111,31 +113,49 @@ void BasicCommunication::sendJsonMessage(Json::Value& message) {
 void BasicCommunication::processResponse(Json::Value& root) {
     Json::StreamWriterBuilder builder;
     const std::string str_msg = Json::writeString(builder, root) + '\n';
-    LOGD("BasicCommunication::%s(), response: %s", __func__, str_msg.c_str());
+    // response for registerRPCComponent message
     if (root.isMember(json_keys::kResult) && root[json_keys::kResult].isInt()) {
         int result = root[json_keys::kResult].asInt();
+        // startId returned by registerComponent
+        mRequestId = mStartId = result;
+        // result Value of id multiplied by 10. HMI can treat this as a successful registration
         if (0 == (result % 10)) {
-            // result Value of id multiplied by 10. HMI can treat this as a successful registration
             onReady();
+            subscribeNotifications();
         }
-    } else {
+    } else if (root.isMember("error")) {
+        // Handle respone of a request
+
+        // std::string id = root["id"].asString();
+        // std::string method = findMethodById(id);
+        LOGD("BasicCommunication::%s(), err: \n%s", __func__, str_msg.c_str());
         // TODO: handle more response
+    } else {
+        LOGD("BasicCommunication::%s(), response:\n%s", __func__, str_msg.c_str());
     }
 }
 
 void BasicCommunication::processRequest(Json::Value& root) {
+    bool isReply = true;
     std::string method = root["method"].asString();
-    if (method == "VR.IsReady") {
-        Json::Value response;
-        response["id"] = root["id"].asString();
-        response["jsonrpc"] = "2.0";
+    Json::Value response;
+    response["id"] = root["id"].asInt();
+    response["jsonrpc"] = "2.0";
+    response["result"]["method"] = method;
+    response["result"]["code"] = 0;
+    if (method == "BasicCommunication.IsReady") {
         response["result"]["available"] = true;
-        response["result"]["code"] = 0;
-        response["result"]["method"] = method;
-        sendJsonMessage(response);
+    } else if (method == "BasicCommunication.GetSystemInfo") {
+        response["result"]["ccpu_version"] = "ccpu_version";
+        response["result"]["language"] = "EN-US";
+        response["result"]["wersCountryCode"] = "US";
+    } else if (method == "BasicCommunication.MixingAudioSupported") {
+        response["result"]["attenuatedSupported"] = true;
     } else {
-        // TODO: handle more request
+        isReply = false;
     }
+    // TODO: handle more request
+    if (isReply) sendJsonMessage(response);
 }
 
 void BasicCommunication::processNotification(Json::Value& root) {
@@ -149,7 +169,7 @@ void BasicCommunication::onError(void) {
 // void startSession(boost::system::error_code ec)
 void BasicCommunication::registerComponent(void) {
     Json::Value msg;
-    msg["id"] = mId;
+    msg["id"] = std::stoi(mId);
     msg["jsonrpc"] = "2.0";
     msg["method"] = "MB.registerComponent";
     msg["params"]["componentName"] = mName;
@@ -157,7 +177,7 @@ void BasicCommunication::registerComponent(void) {
 }
 void BasicCommunication::unregisterComponent(void) {
     Json::Value msg;
-    msg["id"] = mId;
+    msg["id"] = std::stoi(mId);
     msg["jsonrpc"] = "2.0";
     msg["method"] = "MB.unregisterComponent";
     msg["params"]["componentName"] = mName;
@@ -165,10 +185,42 @@ void BasicCommunication::unregisterComponent(void) {
 }
 
 void BasicCommunication::subscribeTo(std::string property) {
-    // TODO: subcribe for notifications
+    Json::Value msg;
+    msg["id"] = generateId();
+    msg["jsonrpc"] = "2.0";
+    msg["method"] = "MB.subscribeTo";
+    msg["params"]["propertyName"] = property;
+    sendJsonMessage(msg);
 }
 
 void BasicCommunication::unsubscribeFrom(std::string property) {
     // TODO: unscribe notifications
 }
+
+void BasicCommunication::subscribeNotifications(void) {
+    subscribeTo("BasicCommunication.OnReady");
+    subscribeTo("BasicCommunication.OnExitAllApplications");
+    subscribeTo("BasicCommunication.OnAppDeactivated");
+    subscribeTo("BasicCommunication.OnStartDeviceDiscovery");
+    subscribeTo("BasicCommunication.OnUpdateDeviceList");
+    subscribeTo("BasicCommunication.OnFindApplications");
+    subscribeTo("BasicCommunication.OnAppActivated");
+    subscribeTo("BasicCommunication.OnAwakeSDL");
+    subscribeTo("BasicCommunication.OnExitApplication");
+    subscribeTo("BasicCommunication.OnDeviceChosen");
+    subscribeTo("BasicCommunication.OnSystemRequest");
+    subscribeTo("BasicCommunication.OnIgnitionCycleOver");
+    subscribeTo("BasicCommunication.OnSystemInfoChanged");
+    subscribeTo("BasicCommunication.OnEventChanged");
+    subscribeTo("BasicCommunication.OnSystemCapabilityUpdated");
+}
+
+int BasicCommunication::generateId(void) {
+    mRequestId++;
+    if (mRequestId >= mStartId + 1000) {
+        mRequestId = mStartId;
+    }
+    return mRequestId;
+}
+
 }
