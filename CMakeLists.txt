@@ -1,39 +1,38 @@
 cmake_minimum_required(VERSION 3.10)
-project(lvgl)
+project(sdl2w)
+
 set(CMAKE_C_STANDARD 11)#C11
 set(CMAKE_CXX_STANDARD 17)#C17
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+set(BASE_DIR ${CMAKE_SOURCE_DIR})
+
 set(EXCLUDE_ERROR_FLAGS "-Wno-error=unused-variable -Wno-error=unused-but-set-variable -Wno-error=deprecated-declarations")
 set(CMAKE_CXX_FLAGS "-fPIC -std=gnu++0x -Wall -fvisibility=hidden -Werror ${EXCLUDE_ERROR_FLAGS} -Wuninitialized -Wvla")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -fsanitize=address")
 
 # --- 3rd party libs (static)
 add_subdirectory(./3rd_party-static)
 add_subdirectory(./utils)
+add_subdirectory(./sdl_message_handler)
+add_subdirectory(./gui)
 
 include_directories(
     ${PROJECT_SOURCE_DIR}
     ${JSONCPP_INCLUDE_DIRECTORY}
+    ${GUI_INCLUDE_DIRECTORY}
+    ${UTILS_INCLUDE_DIRECTORY}
+    ${SDL_MESSAGE_HANLDER_INCLUDE_DIRECTORY}
 )
 
-file(GLOB_RECURSE INCLUDES "lv_drivers/*.h" "lvgl/*.h"  "./*.h" )
-file(GLOB_RECURSE SOURCES  "lv_drivers/*.c" "gui/*.c" "lvgl/*.c" )
-
-file(GLOB WEBSOCKET_CLIENT_SOURCES "sdl_message_handler/*.cc" )
-add_library("websocket_client" ${WEBSOCKET_CLIENT_SOURCES})
 SET(LIBRARIES
-    pthread
-    boost_system
-    jsoncpp
-    utils
+    websocket_client
+    gui
 )
-target_link_libraries(websocket_client ${LIBRARIES})
-#SET(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
+
 SET(EXECUTABLE_OUTPUT_PATH ${CMAKE_CURRENT_BINARY_DIR})
 
-find_package(SDL2 REQUIRED SDL2)
-include_directories(${SDL2_INCLUDE_DIRS})
-
-add_executable(main main.cc ${SOURCES} ${INCLUDES})
-target_link_libraries(main PRIVATE SDL2 websocket_client)
+add_executable(main main.cc)
+target_link_libraries(main ${LIBRARIES})
 add_custom_target (run COMMAND ${EXECUTABLE_OUTPUT_PATH}/main)
+execute_process(COMMAND ../tools/image_converter.sh)

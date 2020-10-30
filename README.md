@@ -6,7 +6,7 @@
 Clone the project:
 
 ```
-git clone https://github.com/giangtqh/sdl-lvgl.git
+git clone --recursive <git>
 ```
 
 ### Install SDL
@@ -20,8 +20,9 @@ sudo apt-get update && sudo apt-get install -y build-essential libsdl2-dev
 ### Compile and Run
 Create build folder
 ```
-cd sdl-lvgl
+cd sdl-hmi-lvgl
 mkdir build
+cd build
 cmake .. && make
-../bin/main
+./main
 ```
