@@ -8,3 +8,6 @@ demo
 /.tracecompass
 build
 .vscode
+3rd_party-static/jsoncpp
+gui/src/lvgl
+gui/src/lv_drivers

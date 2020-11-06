@@ -30,7 +30,7 @@ void GuiController::setMsgController(SDLMessageController* controller) {
 }
 
 void GuiController::onUpdateDeviceList(const std::map<std::string, std::shared_ptr<Device>>& deviceList) {
-    LOGD("GuiController::%s() deviceList size: %lu", __func__, deviceList.size());
+    LOGD("GuiController::%s() deviceList size: %u", __func__, deviceList.size());
     if (deviceList.size() > 0) {
         // page->addButton(deviceList.begin()->second->mName);
         // Just take the first device as example
@@ -42,7 +42,7 @@ void GuiController::onUpdateDeviceList(const std::map<std::string, std::shared_p
 }
 
 void GuiController::onUpdateAppList(const std::map<uint32_t, std::shared_ptr<ApplicationInfo>>& appList) {
-    LOGD("GuiController::%s() appList size: %lu", __func__, appList.size());
+    LOGD("GuiController::%s() appList size: %u", __func__, appList.size());
     mAppList = appList;
 }
 
