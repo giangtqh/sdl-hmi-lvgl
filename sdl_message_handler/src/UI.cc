@@ -2,7 +2,6 @@
 #include "jsoncpp_reader_wrapper.h"
 #include "json_rc_constants.h"
 #include "Log.h"
-// #include "SdlcoreTypes.h"
 #include "SDLMessageControllerImpl.h"
 
 #include <utility>
@@ -126,7 +125,7 @@ void UI::processResponse(const Json::Value& root) {
 }
 
 void UI::processRequest(const Json::Value& root) {
-    bool isReply = false;
+    bool isReplyNow = false;
     Json::StreamWriterBuilder builder;
     const std::string str_msg = Json::writeString(builder, root) + '\n';
     LOGD("UI::%s() <= RECV request\n%s", __func__, str_msg.c_str());
@@ -143,54 +142,71 @@ void UI::processRequest(const Json::Value& root) {
     response["result"]["code"] = 0;
     if (method == "UI.IsReady") {
         response["result"]["available"] = true;
-        isReply = true;
+        isReplyNow = true;
     } else if (method == "UI.GetLanguage") {
         response["result"]["language"] = "EN-US";
-        isReply = true;
+        isReplyNow = true;
     } else if (method == "UI.GetSupportedLanguages") {
         response["result"]["languages"][0] = "EN-US";
         response["result"]["languages"][1] = "FR-CA";
         response["result"]["languages"][2] = "RU-RU";
-        isReply = true;
+        isReplyNow = true;
     } else if (method == "UI.GetCapabilities") {
         onGetCapabilities(root);
     } else if (method == "UI.ChangeRegistration") {
-        isReply = true;
+        isReplyNow = true;
     } else if (method == "UI.Show") {
-        onShow(root);
+        if (mMsgController) {
+            mMsgController->onShow(root);
+        }
+        // send response only when onShow() processing is done
+        isReplyNow = false;
     } else if (method == "UI.AddCommand") {
-        // onAddCommand(root);
-        isReply = true;
+        if (mMsgController) {
+            mMsgController->onAddCommand(root);
+        }
+        isReplyNow = true;
+    } else if (method == "UI.DeleteCommand") {
+        if (mMsgController) {
+            mMsgController->onDeleteCommand(root);
+        }
+        isReplyNow = true;
     } else if (method == "UI.Alert") {
         if (mMsgController) {
             mMsgController->onAlert(root);
         }
-        isReply = true;
+        isReplyNow = true;
     } else if (method == "UI.ClosePopUp") {
         // TODO: Close the currently displayed popup UI element
         if (mMsgController) {
             // mMsgController->onClosePopUp(root);
         }
-        isReply = true;
+        isReplyNow = true;
     } else if (method == "UI.PerformInteraction") {
-        // TODO: A popup request User to perform a UI Interaction (choice set), should response with chosen value
-        if (mMsgController) {
-            // uint32_t choiceId = mMsgController->onPerformInteraction(root);
-            // response["result"]["choiceID"] = choiceId;
-        }
-        // isReply = true;
+        // if (mMsgController) {
+        //     mMsgController->onPerformInteraction(root);
+        // }
+        // We use this message to send list of string to Core, but not send repsonse with chosen item to Core
+        // Just reply with timeout
+        Json::Value resTimeout;
+        resTimeout[json_keys::kId] = root[json_keys::kId].asInt();
+        resTimeout[json_keys::kJsonrpc] = "2.0";
+        resTimeout[json_keys::kError][json_keys::kCode] = 10;
+        resTimeout[json_keys::kError]["data"][json_keys::kMethod] = method;
+        resTimeout[json_keys::kError]["message"] = "UI.PerformInteraction Timed Out";
+        sendJsonMessage(resTimeout);
     } else if (method == "UI.SetAppIcon") {
         if (mMsgController) {
             uint32_t appId = root[json_keys::kParams][app_infos::kAppID].asUInt();
             std::string path = root[json_keys::kParams]["syncFileName"]["value"].asString();
             mMsgController->setAppIcon(appId, path);
         }
-        isReply = true;
+        isReplyNow = true;
     } else {
-        isReply = false;
+        isReplyNow = false;
     }
     // TODO: handle more request
-    if (isReply) sendJsonMessage(response);
+    if (isReplyNow) sendJsonMessage(response);
 }
 
 void UI::processNotification(const Json::Value& root) {
@@ -203,17 +219,6 @@ void UI::processNotification(const Json::Value& root) {
 void UI::onError(void) {
     LOGD("UI::%s()", __func__);
     shutdown();
-}
-
-void UI::onShow(const Json::Value& root) {
-    LOGD("UI::%s()", __func__);
-    // TODO: need to handle for specific app
-    Json::Value response;
-    response[json_keys::kId] = root[json_keys::kId].asInt();
-    response[json_keys::kJsonrpc] = "2.0";
-    response["result"][json_keys::kMethod] = root[json_keys::kMethod].asString();
-    response["result"]["code"] = 0;
-    sendJsonMessage(response);
 }
 
 void UI::onAddCommand(const Json::Value& root) {

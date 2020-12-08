@@ -10,7 +10,7 @@
 #include <memory>
 #include <mutex>
 #include <string>
-
+#include <vector>
 #include "GuiCallbacks.h"
 #include "ApplicationInfo.h"
 
@@ -39,16 +39,20 @@ class SDLMessageControllerImpl {
     void onAppUnRegistered(uint32_t appId, bool unexpectedDisconnect);
     void onUpdateDeviceList(const Json::Value&);
     void onActivateApp(uint32_t appId);
+    void onShow(const Json::Value&);
     // Close app request by MD
     void onCloseApplication(uint32_t appId);
     void onAlert(const Json::Value&);
+    void onAddCommand(const Json::Value&);
+    void onDeleteCommand(const Json::Value&);
     void onUpdateAppList(const Json::Value&);
     void setAppIcon(uint32_t appId, const std::string& path);
     void OnButtonSubscription(const std::string& name, bool isSubscribed, uint32_t appId);
     void onSDLClose(void);
-    void onDialNumber(uint32_t appId, const std::string& number);
+    void onButtonPress(const uint32_t customButtonID, const uint32_t appID);
     void onButtonEvent(const std::string& name, const ButtonEventMode mode, const uint32_t customButtonID, const uint32_t appID);
     void onButtonPress(const std::string& name, const ButtonPressMode mode, const uint32_t customButtonID, const uint32_t appID);
+    void onListItemSelected(const uint32_t cmdId, const uint32_t appID);
 
     // Helper methods
     void sendJsonMessage(const Json::Value& msg);
@@ -58,6 +62,11 @@ class SDLMessageControllerImpl {
  private:
     std::string getComponentName(const std::string& method);
     void findApplications(const Device& device);
+    bool isNotification(const Json::Value& root);
+    bool isResponse(const Json::Value& root);
+    const ListType stringToListType(const std::string& sType);
+    std::string listToTouchType(const ListType& sType);
+    const ListType commandIdtoListType(const uint32_t cmdId);
 
  private:
     std::atomic_bool mShutdown;
@@ -69,6 +78,15 @@ class SDLMessageControllerImpl {
     std::map<std::string, std::shared_ptr<Device>> mDeviceList;
     std::mutex  mAppListMutex;
     std::map<uint32_t, std::shared_ptr<ApplicationInfo>> mAppList;
+
+    std::vector<std::shared_ptr<SoftButton>> mSoftButtons;
+   //  std::map<uint32_t, std::shared_ptr<SMSMessage>> mSMSList;  // map<cmdId, SMSMessage>
+   //  std::map<uint32_t, std::shared_ptr<ContactItem>> mContactList;  // map<cmdId, ContactItem>
+   //  std::map<uint32_t, std::shared_ptr<CallLogItem>> mCallLogList;  // map<cmdId, ContactItem>
+
+    //std::unordered_map<uint32_t, std::shared_ptr<ListItem>> mListData;  // map<cmdId, ContactItem>
+    std::vector<std::shared_ptr<ListItem>> mListData;  // map<cmdId, ContactItem>
+    bool mIsFilledListData = false;
 };
 
 }

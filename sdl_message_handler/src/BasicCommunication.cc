@@ -2,7 +2,6 @@
 #include "jsoncpp_reader_wrapper.h"
 #include "json_rc_constants.h"
 #include "Log.h"
-// #include "SdlcoreTypes.h"
 #include "SDLMessageControllerImpl.h"
 
 #include <utility>
@@ -221,11 +220,12 @@ void BasicCommunication::processRequest(const Json::Value& root) {
     } else if (method == "BasicCommunication.SystemRequest") {
         isReply = true;
     } else if (method == "BasicCommunication.DialNumber") {
-        uint32_t appId = root[json_keys::kParams][app_infos::kAppID].asUInt();
-        std::string number = root[json_keys::kParams]["number"].asString();
-        if (mMsgController) {
-            mMsgController->onDialNumber(appId, number);
-        }
+        // uint32_t appId = root[json_keys::kParams][app_infos::kAppID].asUInt();
+        // std::string number = root[json_keys::kParams]["number"].asString();
+        // if (mMsgController) {
+            // TODO: This Dial request initial by phone
+            // mMsgController->onDialNumber(appId, number);
+        // }
         isReply = true;
     } else {
         isReply = false;
@@ -307,6 +307,7 @@ void BasicCommunication::subscribeNotifications(void) {
     subscribeTo("BasicCommunication.OnSDLPersistenceComplete");
     subscribeTo("BasicCommunication.OnSDLClose");
     subscribeTo("BasicCommunication.OnResumeAudioSource");
+    subscribeTo("BasicCommunication.OnSystemCapabilityUpdated");
 
     // subscribe to SDL notification
     subscribeTo("SDL.OnStatusUpdate");

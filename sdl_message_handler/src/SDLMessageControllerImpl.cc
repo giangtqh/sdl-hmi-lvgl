@@ -1,12 +1,16 @@
 
+#include <utility>
+
 #include "SDLMessageControllerImpl.h"
 #include "BasicCommunication.h"
 #include "UI.h"
 #include "Buttons.h"
+#include "VR.h"
 #include "Log.h"
 #include "json/json.h"
 #include "json_rc_constants.h"
-#include <utility>
+#include "SDLTypes.h"
+#include "jsoncpp_reader_wrapper.h"
 
 namespace sdlcore_message_handler {
 
@@ -49,11 +53,38 @@ void SDLMessageControllerImpl::startSession(void) {
         (void) it.first->second->start();
     }
 
+    it = mConnectionList.insert(std::pair<std::string, std::shared_ptr<WebsocketConnection>>("VR", std::shared_ptr<WebsocketConnection>(new VR(this))));
+    if (it.second) {
+        (void) it.first->second->start();
+    }
+
     // TODO: create and insert other components into list
 }
 
-void SDLMessageControllerImpl::sendJsonMessage(const Json::Value& msg) {
-    std::string componentName = getComponentName(msg["method"].asString());
+bool SDLMessageControllerImpl::isNotification(const Json::Value& root) {
+    bool ret = false;
+    if (false == root.isMember("id")) {
+        ret = true;
+    }
+    return ret;
+}
+
+bool SDLMessageControllerImpl::isResponse(const Json::Value& root) {
+    bool ret = false;
+    if ((true == root.isMember("result")) || (true == root.isMember("error"))) {
+        ret = true;
+    }
+    return ret;
+}
+
+void SDLMessageControllerImpl::sendJsonMessage(const Json::Value& message) {
+    std::string componentName = "BasicCommunication";
+    if (isResponse(message)) {
+        componentName = getComponentName(message[json_keys::kResult][json_keys::kMethod].asString());
+    } else {
+        componentName = getComponentName(message["method"].asString());
+    }
+
     // route SDL requests to BasicCommunication
     if ("SDL" == componentName) {
         componentName = "BasicCommunication";
@@ -61,7 +92,7 @@ void SDLMessageControllerImpl::sendJsonMessage(const Json::Value& msg) {
     std::lock_guard<std::mutex> guard(mConnectionListMutex);
     auto it = mConnectionList.find(componentName);
     if (it != mConnectionList.end()) {
-        it->second->sendJsonMessage(msg);
+        it->second->sendJsonMessage(message);
     } else {
         LOGE("%s() Component not found!", __func__);
     }
@@ -131,6 +162,11 @@ void SDLMessageControllerImpl::onAppUnRegistered(uint32_t appId, bool unexpected
         mAppList.erase(it);
     }
     mGuiCallbacks.onAppUnRegistered(appId);
+    mSoftButtons.clear();
+    // mSMSList.clear();
+    mListData.clear();
+    // mContactList.clear();
+    // mCallLogList.clear();
 }
 
 void SDLMessageControllerImpl::onUpdateDeviceList(const Json::Value& message) {
@@ -229,11 +265,6 @@ void SDLMessageControllerImpl::onSDLClose(void) {
     shutdown();
 }
 
-void SDLMessageControllerImpl::onDialNumber(uint32_t appId, const std::string& number) {
-    mGuiCallbacks.onDialNumber(appId, number);
-    shutdown();
-}
-
 void SDLMessageControllerImpl::onActivateApp(uint32_t appId) {
     // not in use
     mGuiCallbacks.onActivateApp(appId);
@@ -243,8 +274,140 @@ void SDLMessageControllerImpl::onCloseApplication(uint32_t appId) {
     mGuiCallbacks.onCloseApplication(appId);
 }
 
-void SDLMessageControllerImpl::onAlert(const Json::Value& msg) {
-    mGuiCallbacks.onAlert(msg);
+void SDLMessageControllerImpl::onAlert(const Json::Value& message) {
+    // Parse specific Alert type into respective callback
+    const Json::Value& params = message[json_keys::kParams];
+    const uint32_t appId = params[json_keys::kAppId].asUInt();
+    if ((params.isMember("alertStrings"))) {
+        const Json::Value& alertStrings = params["alertStrings"];
+        uint64_t alertSize = (uint64_t) alertStrings.size();
+        if (alertSize > 0) {
+            std::string alertType = alertStrings[0]["fieldText"].asString();
+            if ("ON_CALL" == alertType) {
+                if (alertSize >= 2) {
+                    std::string number = alertStrings[1]["fieldText"].asString();
+                    // TODO: Parse and get button id for "Accept" and "Deny"
+                    const uint32_t acceptButtonId = 200;
+                    const uint32_t denyButtonId = 201;
+                    mGuiCallbacks.onIncomingCall(appId, number, acceptButtonId, denyButtonId);
+                } else {
+                    LOGD("SDLMessageControllerImpl::%s() Alert do not contain phone number", __func__);
+                }
+            } else if ("ON_DIAL" == alertType) {
+                if (alertSize >= 2) {
+                    std::string number = alertStrings[1]["fieldText"].asString();
+                    // TODO: consider to update inComingCallback to pass cancelButtonId
+                    const uint32_t cancelButtonId = 203;
+                    mGuiCallbacks.onDialNumber(appId, number, cancelButtonId);
+                } else {
+                    LOGD("SDLMessageControllerImpl::%s() Alert do not contain phone number", __func__);
+                }
+            } else if ("ON_SMS" == alertType) {
+                if (alertSize >= 3) {
+                    std::string number = alertStrings[1]["fieldText"].asString();
+                    std::string body = alertStrings[2]["fieldText"].asString();
+                    mGuiCallbacks.onSMSNotificaton(appId, number, body);
+                } else {
+                    LOGD("SDLMessageControllerImpl::%s() Alert do not contain phone number/message body", __func__);
+                }
+            } else if ("ON_END_CALL" == alertType) {
+                mGuiCallbacks.onEndCall();
+            } else if (("SMS_FILLED" == alertType)) {
+                mIsFilledListData = true;
+                mGuiCallbacks.onUpdateListData(ListType::SMS, mListData);
+            } else if ("CONTACT_FILLED" == alertType) {
+                mIsFilledListData = true;
+                mGuiCallbacks.onUpdateListData(ListType::CONTACT, mListData);
+            } else if ("CALL_LOG_FILLED" == alertType) {
+                mIsFilledListData = true;
+                mGuiCallbacks.onUpdateListData(ListType::CALL_LOG, mListData);
+            }
+        } else {
+            LOGD("SDLMessageControllerImpl::%s() Alert do not contain alert string", __func__);
+        }
+    }
+}
+
+void SDLMessageControllerImpl::onAddCommand(const Json::Value& message) {
+    const Json::Value& params = message[json_keys::kParams];
+    if (!params.isMember("menuParams")) {
+        LOGD("SDLMessageControllerImpl::%s() Json message do not have \"menuParams\" field.", __func__);
+        return;
+    }
+    if (mIsFilledListData) {
+        mListData.clear();
+        mIsFilledListData = false;
+    }
+    const Json::Value& menuParams = params["menuParams"];
+    std::string menuName = menuParams["menuName"].asString();
+    utils::JsonReader reader;
+    Json::Value menuNameJson;
+    if (!reader.parse(menuName, &menuNameJson)) {
+        LOGE("SDLMessageControllerImpl::%s() Invalid JSON Message.", __func__);
+        return;
+    }
+    uint32_t cmdId = params["cmdID"].asUInt();
+    ListType listType = commandIdtoListType(cmdId);
+    switch (listType) {
+        case ListType::CONTACT: {
+            std::string name = menuNameJson["name"].asString();
+            std::string number = menuNameJson["number"].asString();
+            // mContactList.insert(std::pair<uint32_t, std::shared_ptr<ContactItem>>(cmdId, std::shared_ptr<ContactItem>(new ContactItem(name, number))));
+            mListData.push_back(std::make_shared<ContactItem>(cmdId, name, number));
+            break;
+        }
+        case ListType::CALL_LOG: {
+            std::string name = menuNameJson["name"].asString();
+            std::string number = menuNameJson["number"].asString();
+            std::string date = menuNameJson["date"].asString();
+            std::string duration = menuNameJson["duration"].asString();
+            CallLogType type = static_cast<CallLogType>(menuNameJson["type"].asUInt());
+            mListData.push_back(std::make_shared<CallLogItem>(cmdId, name, number, date, duration, type));
+            break;
+        }
+        case ListType::SMS: {
+            std::string address = menuNameJson["address"].asString();
+            std::string body = menuNameJson["body"].asString();
+            std::string date = menuNameJson["date"].asString();
+            uint32_t read = menuNameJson["read"].asUInt();
+            uint32_t type = menuNameJson["type"].asUInt();
+            //mSMSList.insert(std::pair<uint32_t, std::shared_ptr<SMSMessage>>(cmdId, std::shared_ptr<SMSMessage>(new SMSMessage(address, body, date, read, type))));
+            // mListData[cmdId] = std::make_shared<SMSMessage>(address, body, date, read, type);
+            mListData.push_back(std::make_shared<SMSMessage>(cmdId, address, body, date, read, type));
+            break;
+        }
+        default: {
+            LOGD("SDLMessageControllerImpl::%s() Invalid list type", __func__);
+            break;
+        }
+    }
+}
+
+void SDLMessageControllerImpl::onDeleteCommand(const Json::Value& message) {
+    const Json::Value& params = message[json_keys::kParams];
+    if (!params.isMember("cmdID")) {
+        LOGD("SDLMessageControllerImpl::%s() Json message do not have \"cmdID\" field.", __func__);
+        return;
+    }
+    uint32_t cmdId = params["cmdID"].asUInt();
+    ListType listType = commandIdtoListType(cmdId);
+    switch (listType) {
+        case ListType::CONTACT:
+        case ListType::CALL_LOG:
+        case ListType::SMS: {
+            // mSMSList.erase(cmdId);
+            if (!mListData.empty()) {
+                mListData.clear();
+                mIsFilledListData = false;
+                // mListData.erase(std::remove_if(mListData.begin(), mListData.end(), [&] ( const std::shared_ptr<ListItem>& item ) { return (item->command_id_ == cmdId); }), mListData.end());
+            }
+            break;
+        }
+        default: {
+            LOGD("SDLMessageControllerImpl::%s() Invalid list type", __func__);
+            break;
+        }
+    }
 }
 
 void SDLMessageControllerImpl::activateApplication(uint32_t appId) {
@@ -307,6 +470,8 @@ void SDLMessageControllerImpl::findApplications(const Device& device) {
     Json::Value msg;
     msg[json_keys::kJsonrpc] = "2.0";
     msg[json_keys::kMethod] = "BasicCommunication.OnFindApplications";
+    msg[json_keys::kParams]["deviceInfo"]["name"] = device.mName;
+    msg[json_keys::kParams]["deviceInfo"]["id"] = device.mId;
     sendJsonMessage(msg);
 }
 
@@ -314,6 +479,21 @@ void SDLMessageControllerImpl::updateDeviceList(void) {
     Json::Value msg;
     msg[json_keys::kJsonrpc] = "2.0";
     msg[json_keys::kMethod] = "BasicCommunication.OnUpdateDeviceList";
+    sendJsonMessage(msg);
+}
+
+void SDLMessageControllerImpl::onButtonPress(const uint32_t customButtonID, const uint32_t appID) {
+    onButtonEvent("CUSTOM_BUTTON", BUTTONDOWN, customButtonID, appID);
+    onButtonPress("CUSTOM_BUTTON", SHORT, customButtonID, appID);
+    onButtonEvent("CUSTOM_BUTTON", BUTTONUP, customButtonID, appID);
+}
+
+void SDLMessageControllerImpl::onListItemSelected(const uint32_t cmdId, const uint32_t appID) {
+    Json::Value msg;
+    msg[json_keys::kJsonrpc] = "2.0";
+    msg[json_keys::kMethod] = "UI.OnCommand";
+    msg[json_keys::kParams]["cmdID"] = cmdId;
+    msg[json_keys::kParams][json_keys::kAppId] = appID;
     sendJsonMessage(msg);
 }
 
@@ -343,6 +523,82 @@ void SDLMessageControllerImpl::OnButtonSubscription(const std::string& name, boo
     // Notify the HMI that the specified application's interest in receiving
     //notifications for a button has changed.
     mGuiCallbacks.OnButtonSubscription(name, isSubscribed, appId);
+}
+
+void SDLMessageControllerImpl::onShow(const Json::Value& root) {
+    LOGD("SDLMessageControllerImpl::%s()", __func__);
+    uint32_t appId = root[json_keys::kParams][app_infos::kAppID].asUInt();
+    const Json::Value& params = root[json_keys::kParams];
+    // showString will be replace for each UI.Show
+    std::vector<std::string> showStrings;
+    if (params.isMember("showStrings")) {
+        const Json::Value& showStringArray = params["showStrings"];
+        for (auto item : showStringArray) {
+            showStrings.push_back(item["fieldText"].asString());
+        }
+    }
+    std::vector<std::shared_ptr<SoftButton>> softButtons;
+    if (params.isMember("softButtons")) {
+        const Json::Value& softButtonArray = params["softButtons"];
+        for (auto item : softButtonArray) {
+            uint32_t id = item["softButtonID"].asUInt();
+            std::string type = item["type"].asString();
+            std::string text = item["text"].asString();
+            softButtons.push_back(std::shared_ptr<SoftButton>(new SoftButton(id, text, type)));
+        }
+        mSoftButtons.swap(softButtons);
+    }
+
+    // Currenlty SDL core call this callback twice for fully update showString (4 mainField).
+    // The first call only contain mainField1 and 3 buttons
+    // the second call for all mainField (4 mainFields)
+    // TODO(GTR): Fix Me
+    if (!mSoftButtons.empty()) {
+        mGuiCallbacks.onShow(appId, showStrings, mSoftButtons);
+    }
+    Json::Value response;
+    response[json_keys::kId] = root[json_keys::kId].asInt();
+    response[json_keys::kJsonrpc] = "2.0";
+    response["result"][json_keys::kMethod] = root[json_keys::kMethod].asString();
+    response["result"]["code"] = 0;
+    sendJsonMessage(response);
+}
+
+const ListType SDLMessageControllerImpl::stringToListType(const std::string& sType) {
+    ListType type = ListType::CONTACT;
+    if ("CONTACT_LIST" == sType) {
+        type = ListType::CONTACT;
+    } else if ("CALL_LOG" == sType) {
+        type = ListType::CALL_LOG;
+    } else if ("MESSAGE" == sType) {
+        type = ListType::SMS;
+    }
+    return type;
+}
+
+// TODO(GTR): will be removed
+std::string SDLMessageControllerImpl::listToTouchType(const ListType& sType) {
+    std::string touchType = "BEGIN";
+    if (ListType::CONTACT == sType) {
+        touchType.assign("BEGIN");
+    } else if (ListType::CALL_LOG == sType) {
+        touchType.assign("MOVE");
+    } else if (ListType::SMS == sType) {
+        touchType.assign("END");
+    }
+    return touchType;
+}
+
+const ListType SDLMessageControllerImpl::commandIdtoListType(const uint32_t cmdId) {
+    ListType type = ListType::CONTACT;
+    if (cmdId <= 1000) {
+        type = ListType::CONTACT;
+    } else if (cmdId <= 2000) {
+        type = ListType::CALL_LOG;
+    } else if (cmdId <= 3000) {
+        type = ListType::SMS;
+    }
+    return type;
 }
 
 }

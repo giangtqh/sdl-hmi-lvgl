@@ -12,10 +12,13 @@ include_directories(
 )
 
 file(GLOB_RECURSE INCLUDES "src/lv_drivers/*.h" "src/lvgl/*.h"  "src/*.h" )
-file(GLOB_RECURSE SOURCES  "src/lv_drivers/*.c" "src/*.c" "src/*.cc" "src/lvgl/*.c" "assets/convert/*.c" )
+#file(GLOB_RECURSE SOURCES  "src/lv_drivers/*.c" "src/*.c" "src/*.cc" "src/lvgl/*.c" "assets/convert/*.c" )
+file(GLOB_RECURSE SOURCES  "src/lv_drivers/*.c" "src/*.c" "src/*.cc" "src/lvgl/*.c")
 
+add_subdirectory(./assets)
 find_package(SDL2 REQUIRED SDL2)
 include_directories(${SDL2_INCLUDE_DIRS})
 
+message("ASSETS_SRCS: ${ASSETS_SRCS}")
 add_library("gui" ${SOURCES} ${INCLUDES})
-target_link_libraries(gui PRIVATE SDL2)
+target_link_libraries(gui PRIVATE SDL2 assets)

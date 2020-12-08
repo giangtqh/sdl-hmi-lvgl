@@ -10,12 +10,14 @@
 #include <memory>
 #include <string>
 #include <thread>
+#include <vector>
 
 #include "json/json.h"
 
 namespace gui {
     class Telephony;
     class MainPage;
+    class HomePage;
 }
 
 namespace sdlcore_message_handler {
@@ -45,11 +47,21 @@ class GuiController: public GuiCallbacks {
 
     void initDisplay(void);
 
-    void onDialNumber(uint32_t appId, const std::string& number) override;
-    void onIncomingCall(uint32_t appId, const std::string& number) override;
+    void onDialNumber(uint32_t appId, const std::string number, uint32_t cancelBtnId) override;
+    void onIncomingCall(uint32_t appId, const std::string number, uint32_t acceptBtnId, uint32_t denyBtnId) override;
     void onStartCall() override;
     void onEndCall() override;
     void onHangUpCall() override;
+    void onSMSNotificaton(uint32_t appId, const std::string number, const std::string body) override;
+
+    void onShow(uint32_t appId, std::vector<std::string> showString, const std::vector<std::shared_ptr<SoftButton>>& softButtons) override;
+    // void onUpdateSMSList(const std::map<uint32_t, std::shared_ptr<SMSMessage>>& smsList) override;
+    // void onUpdateContactList(const std::map<uint32_t, std::shared_ptr<ContactItem>>& contactList) override;
+    // void onUpdateCallLogList(const std::map<uint32_t, std::shared_ptr<CallLogItem>>& callLog) override;
+
+    void onUpdateListData(const ListType type, const std::vector<std::shared_ptr<ListItem>>& data) override;
+
+    void testList(void);
 
     void waitForExit(void);
 
@@ -59,7 +71,12 @@ class GuiController: public GuiCallbacks {
     void onDeviceChosen(const std::string& devId);
     void onAppChosen(const uint32_t appId);
 
-    // SDLMessageController* getMsgController(void) { return mController; }
+    void onButtonPress(uint32_t btnId);
+    void onListItemSelected(uint32_t cmdId);
+
+    // request SDL to send device list
+    void updateDeviceList(void);
+    void startDeviceDiscovery(void);
 
  private:
     // TODO: Gui should manage list of registered app/device
@@ -69,6 +86,9 @@ class GuiController: public GuiCallbacks {
     SDLMessageController* mController;
     std::thread guiThread;
     std::map<uint32_t, std::shared_ptr<ApplicationInfo>> mAppList;
+
+    gui::HomePage* mHomePage;
+    std::vector<std::shared_ptr<ListItem>> dummy;
 };
 
 }

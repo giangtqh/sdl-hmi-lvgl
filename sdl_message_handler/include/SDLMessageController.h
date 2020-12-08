@@ -91,12 +91,15 @@ class SDLMessageController {
     void updateDeviceList(void);
 
     /**
-     * @brief Inform SDL that a touch event has occurred in the HMI.
-     * @param[in] device Device information
+     * @brief Inform SDL that a touch event has occurred in the button.
+     * @param[in] customButtonID 	customButton ID
+     * @param[in] appID appID
      */
     // void onTouchEvent(TouchType, TouchEvent);
+    void onButtonPress(const uint32_t customButtonID, const uint32_t appID);
+    void onListItemSelected(const uint32_t cmdId, const uint32_t appID);
 
-    /**
+    /** DEPRECATED
      * @brief Inform SDL about the occurrence of a button event.
      * @param[in] name 	Button Name
      * @param[in] mode 	Button Event Mode
@@ -105,7 +108,7 @@ class SDLMessageController {
      */
     void onButtonEvent(const std::string& name, const ButtonEventMode mode, const uint32_t customButtonID, const uint32_t appID);
 
-    /**
+    /** DEPRECATED
      * @brief Inform SDL about a Button Press.
      * If the HMI reports to SDL via Buttons.GetCapabilities that it supports long and/or short button press modes, SDL expects
      * the HMI to send the Buttons.OnButtonPress notification but buttons that have been subscribed via Buttons.OnButtonSubscription

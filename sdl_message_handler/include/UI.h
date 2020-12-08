@@ -33,27 +33,9 @@ class UI : public WebsocketConnection {
     void onMessageReceived(MessagePtr msg);
     // TODO: error with err code
     void onError(void);
-    void onShow(const Json::Value&);
     void onAddCommand(const Json::Value&);
     void onGetCapabilities(const Json::Value&);
-    /**
-    * Sent notification to SDL when HMI closes
-    */
-    // OnIgnitionCycleOver()
-    // Send request if device was unpaired from HMI
-    // OnDeviceStateChanged()
-    /**
-    * This methos is request to get list of registered apps.
-    */
-    // OnFindApplications()
-    // OnSystemError()
-    // OnAppDeactivated()
-    // Sender: HMI->SDL. When: upon phone-call event started or ended
-    // OnPhoneCall()
-    // Used by HMI when User chooses to exit application.
-    // ExitApplication()
-    // Notify if device is choosed
-    // OnDeviceChosen()
+
  private:
     void registerComponent(void);
     void unregisterComponent(void);

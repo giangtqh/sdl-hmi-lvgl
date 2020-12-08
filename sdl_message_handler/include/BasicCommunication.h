@@ -35,24 +35,7 @@ class BasicCommunication : public WebsocketConnection {
     void processMessageFromSDL(MessagePtr msg);
     // TODO: error with err code
     void onError(void);
-    /**
-    * Sent notification to SDL when HMI closes
-    */
-    // OnIgnitionCycleOver()
-    // Send request if device was unpaired from HMI
-    // OnDeviceStateChanged()
-    /**
-    * This methos is request to get list of registered apps.
-    */
-    // OnFindApplications()
-    // OnSystemError()
-    // OnAppDeactivated()
-    // Sender: HMI->SDL. When: upon phone-call event started or ended
-    // OnPhoneCall()
-    // Used by HMI when User chooses to exit application.
-    // ExitApplication()
-    // Notify if device is choosed
-    // OnDeviceChosen()
+
  private:
 #if 0
     class LoopThreadDelegate : public utils::Thread {

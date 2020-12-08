@@ -68,6 +68,12 @@ void SDLMessageController::updateDeviceList() {
     }
 }
 
+void SDLMessageController::onButtonPress(const uint32_t customButtonID, const uint32_t appID) {
+    if (mImpl) {
+        mImpl->onButtonPress(customButtonID, appID);
+    }
+}
+
 void SDLMessageController::onButtonEvent(const std::string& name, const ButtonEventMode mode ,const uint32_t customButtonID, const uint32_t appID) {
     if (mImpl) {
         mImpl->onButtonEvent(name, mode, customButtonID, appID);
@@ -77,6 +83,12 @@ void SDLMessageController::onButtonEvent(const std::string& name, const ButtonEv
 void SDLMessageController::onButtonPress(const std::string& name, const ButtonPressMode mode ,const uint32_t customButtonID, const uint32_t appID) {
     if (mImpl) {
         mImpl->onButtonPress(name, mode, customButtonID, appID);
+    }
+}
+
+void SDLMessageController::onListItemSelected(const uint32_t cmdId, const uint32_t appID) {
+    if (mImpl) {
+        mImpl->onListItemSelected(cmdId, appID);
     }
 }
 

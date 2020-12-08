@@ -30,7 +30,7 @@
 
 #include "Thread.h"
 #include "MessageQueue.h"
-#include "SdlcoreTypes.h"
+#include "SDLTypes.h"
 
 namespace sdlcore_message_handler {
 

@@ -151,7 +151,7 @@ static lv_anim_value_t anim_path_random(const lv_anim_path_t * path, const lv_an
     if (i < cnt) {
       ++i;
     } else if (i > cnt) {
-      i-=3;
+      i -= 3;
     } else {
       cnt = (rand() % (GAUSE_CRITICAL_SPEED)) + 30;
     }
@@ -163,11 +163,6 @@ static lv_anim_value_t anim_path_random(const lv_anim_path_t * path, const lv_an
     //     LOGD("MainPage::%s() NULL", __func__);
     // }
     return (lv_anim_value_t)i;
-}
-
-void MainPage::saySomething(const std::string& msg) {
-    LOGD("MainPage::%s() %s", __func__, msg.c_str());
-    controller_->onAlert("HOLISHIT");
 }
 
 void MainPage::addGauge(void) {
@@ -248,10 +243,10 @@ void MainPage::addGauge(void) {
 void MainPage::lv_task_handle(void) {
     /* Periodically call the lv_task handler.
     * It could be done in a timer interrupt or an OS task too.*/
-   while (!shutdown_) {
-        lv_task_handler();
-        usleep(5 * 1000);
-   }
+    while (!shutdown_) {
+            lv_task_handler();
+            usleep(5 * 1000);
+    }
 }
 
 void MainPage::start_lv_task(void) {
@@ -268,13 +263,8 @@ void MainPage::btn_event_handler(lv_obj_t * obj, lv_event_t event) {
     // access user_data
     if (obj->user_data) {
         auto me = static_cast<MainPage*>(obj->user_data);
-        if(event == LV_EVENT_CLICKED) {
-            me->saySomething("Clicked\n");
-            // me->controller_->onDeviceChosen("8dd1345089629dc2b6dc62548efd94364b3e36d99622e5192a41eaaca8c56bc2");
+        if (event == LV_EVENT_CLICKED) {
             me->controller_->onDeviceChosen(me->mDevId);
-        }
-        else if(event == LV_EVENT_VALUE_CHANGED) {
-            me->saySomething("Toggled\n");
         }
     }
 }
@@ -283,13 +273,8 @@ void MainPage::btn_app_event_handler(lv_obj_t * obj, lv_event_t event) {
     // access user_data
     if (obj->user_data) {
         auto me = static_cast<MainPage*>(obj->user_data);
-        if(event == LV_EVENT_CLICKED) {
-            me->saySomething("Clicked\n");
-            // me->controller_->onDeviceChosen("8dd1345089629dc2b6dc62548efd94364b3e36d99622e5192a41eaaca8c56bc2");
+        if (event == LV_EVENT_CLICKED) {
             me->controller_->onAppChosen(me->mAppId);
-        }
-        else if(event == LV_EVENT_VALUE_CHANGED) {
-            me->saySomething("Toggled\n");
         }
     }
 }
@@ -317,5 +302,57 @@ void MainPage::addApp(const std::string& btnName, uint32_t appId) {
     label = lv_label_create(btn1, NULL);
     lv_label_set_text(label, btnName.c_str());
 }
+
+void MainPage::addList(void) {
+    /*Create a list*/
+    mListAppSoftButton = lv_list_create(lv_scr_act(), NULL);
+    lv_obj_set_size(mListAppSoftButton, 160, 200);
+    lv_obj_align(mListAppSoftButton, NULL, LV_ALIGN_IN_RIGHT_MID, 0, 0);
+}
+
+void MainPage::addSoftButton(const std::string& name, uint32_t btnId) {
+    /*Add buttons to the list*/
+    list_btn = lv_list_add_btn(mListAppSoftButton, LV_SYMBOL_FILE, name.c_str());
+    lv_obj_set_event_cb(list_btn, soft_btn_event_handler);
+    mSoftButtonMap[name] = btnId;
+    lv_obj_set_user_data(list_btn, this);
+}
+
+void MainPage::soft_btn_event_handler(lv_obj_t * obj, lv_event_t event) {
+    if (obj->user_data) {
+        if (event == LV_EVENT_CLICKED) {
+            printf("Clicked: %s\n", lv_list_get_btn_text(obj));
+            std::string btnName(lv_list_get_btn_text(obj));
+            auto me = static_cast<MainPage*>(obj->user_data);
+            me->controller_->onButtonPress(me->mSoftButtonMap[btnName]);
+        }
+    }
+}
+
+void MainPage::addContactList(void) {
+    /*Create a list*/
+    mContactListObj = lv_list_create(lv_scr_act(), NULL);
+    lv_obj_set_size(mContactListObj, 160, 200);
+    lv_obj_align(mContactListObj, NULL, LV_ALIGN_IN_LEFT_MID, 0, 0);
+}
+
+void MainPage::contact_list_event_handler(lv_obj_t * obj, lv_event_t event) {
+    if (obj->user_data) {
+        if (event == LV_EVENT_CLICKED) {
+            auto me = static_cast<MainPage*>(obj->user_data);
+            std::string btnName(lv_list_get_btn_text(obj));
+            me->controller_->onListItemSelected(me->mContactList[btnName]);
+        }
+    }
+}
+
+void MainPage::addContactItem(const std::string& name, uint32_t btnId) {
+    /*Add buttons to the list*/
+    lv_obj_t * list_btn = lv_list_add_btn(mContactListObj, LV_SYMBOL_FILE, name.c_str());
+    lv_obj_set_event_cb(list_btn, contact_list_event_handler);
+    mContactList[name] = btnId;
+    lv_obj_set_user_data(list_btn, this);
+}
+
 
 }

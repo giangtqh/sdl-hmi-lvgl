@@ -22,8 +22,8 @@
 /* Maximal horizontal and vertical resolution to support by the library.*/
 // #define LV_HOR_RES_MAX          (480)
 // #define LV_VER_RES_MAX          (320)
-#define LV_HOR_RES_MAX          (600)
-#define LV_VER_RES_MAX          (400)
+#define LV_HOR_RES_MAX          (800)
+#define LV_VER_RES_MAX          (480)
 /* Color depth:
  * - 1:  1 byte per pixel
  * - 8:  RGB332
@@ -240,6 +240,8 @@ typedef void * lv_img_decoder_user_data_t;
 
 /* For big endian systems set to 1 */
 #define LV_BIG_ENDIAN_SYSTEM    0
+
+#define LV_USE_DEMO_PRINTER     1
 
 /* Define a custom attribute to `lv_tick_inc` function */
 #define LV_ATTRIBUTE_TICK_INC
